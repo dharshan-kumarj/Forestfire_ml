@@ -1,33 +1,32 @@
-from fastapi import APIRouter
+from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
 import numpy as np
-import aiohttp
-from src.Weather import fetch_weather_forecast  # Assuming you have the Weather module for fetching forecasts
 
-router = APIRouter()
+app = FastAPI()
 
-# Load model and scaler at startup
+# Load the saved model and scaler at startup
 model = None
 scaler = None
 
-@router.on_event("startup")
+@app.on_event("startup")
 async def load_model():
     global model, scaler
-    model_path = 'src/model/finalmodeloutput.pkl'  # Adjust path based on your structure
-    scaler_path = 'src/model/scaler.pkl'           # Adjust path based on your structure
+    model_path = 'finalmodeloutput.pkl'
+    scaler_path = 'scaler.pkl'
     
+    # Load model and scaler
     model = joblib.load(model_path)
     scaler = joblib.load(scaler_path)
 
-# Input data structure for prediction
+# Input data structure (with 3 features)
 class FirePredictionInput(BaseModel):
     Oxygen: float
     Temperature: float
     Humidity: float
 
 # Predict endpoint
-@router.post("/predict")
+@app.post("/predict")
 async def predict_fire_occurrence(input_data: FirePredictionInput):
     try:
         # Convert input data into a numpy array
@@ -46,10 +45,3 @@ async def predict_fire_occurrence(input_data: FirePredictionInput):
     
     except Exception as e:
         return {"error": str(e)}
-
-# Weather forecast endpoint
-@router.get("/forecast/{city}")
-async def get_weather_forecast(city: str):
-    async with aiohttp.ClientSession() as session:
-        forecast = await fetch_weather_forecast(city, session)
-        return forecast

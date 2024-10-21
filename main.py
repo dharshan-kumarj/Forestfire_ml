@@ -1,7 +1,6 @@
-# main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.api import router
+from src.api import router  # Import the combined router
 
 app = FastAPI()
 
@@ -14,6 +13,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include the API router (which now has both /predict and /forecast)
 app.include_router(router)
 
 if __name__ == "__main__":

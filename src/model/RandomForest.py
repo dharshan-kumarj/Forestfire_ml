@@ -13,7 +13,7 @@ def load_data(file_path):
 
 def preprocess_data(df):
     # Handle missing values by forward filling
-    df.fillna(method='ffill', inplace=True)
+    df.ffill(inplace=True)  # Updated to use ffill() method as per the warning
 
     # Check for duplicate rows and remove them
     df.drop_duplicates(inplace=True)
@@ -21,11 +21,9 @@ def preprocess_data(df):
     # Rename the target column for consistency
     df.rename(columns={'Fire Occurrence': 'Fire_Occurrence'}, inplace=True)
     
-    # Encode categorical variables using one-hot encoding
-    df = pd.get_dummies(df, columns=['Area'], drop_first=True)
-
-    # Separate features and target variable
-    X = df.drop(columns=['Fire_Occurrence'])
+    # Select the relevant features (use actual column names)
+    selected_columns = ['Oxygen', 'Temperature', 'Humidity']
+    X = df[selected_columns]  # Use only the selected features
     y = df['Fire_Occurrence']  # Target variable
 
     return X, y
@@ -60,7 +58,7 @@ def main():
     # Train the model
     model.fit(X_train, y_train)
 
-    # Make predictions
+    # Make predictions on test data
     y_pred = model.predict(X_test)
 
     # Evaluate the model
@@ -72,8 +70,8 @@ def main():
     print(classification_report(y_test, y_pred))
 
     # Save the model and scaler to files
-    model_path = '../Finalmodel/finalmodeloutput.pkl'
-    scaler_path = '../Finalmodel/scaler.pkl'
+    model_path = 'finalmodeloutput.pkl'
+    scaler_path = 'scaler.pkl'
     
     joblib.dump(model, model_path)
     joblib.dump(scaler, scaler_path)
