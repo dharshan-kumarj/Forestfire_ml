@@ -1,7 +1,10 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score
+from sklearn.preprocessing import StandardScaler
+import joblib
+import os
 
 def load_data(file_path):
     # Load the CSV data into a DataFrame
@@ -46,8 +49,13 @@ def main():
     # Split the data into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # Create a Decision Tree Classifier
-    model = DecisionTreeClassifier(random_state=42)
+    # Feature Scaling
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    # Create a Random Forest Classifier
+    model = RandomForestClassifier(n_estimators=100, random_state=42)
 
     # Train the model
     model.fit(X_train, y_train)
@@ -62,6 +70,13 @@ def main():
     # Print classification report
     print("\nClassification Report:")
     print(classification_report(y_test, y_pred))
+
+    # Save the model and scaler to files
+    model_path = '../Finalmodel/finalmodeloutput.pkl'
+    scaler_path = '../Finalmodel/scaler.pkl'
+    
+    joblib.dump(model, model_path)
+    joblib.dump(scaler, scaler_path)
 
 if __name__ == '__main__':
     main()
