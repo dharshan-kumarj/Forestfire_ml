@@ -1,4 +1,5 @@
 import aiohttp
+from datetime import datetime
 from config import Config  # Assuming your API keys and URLs are stored here
 
 # Function to fetch air quality data (pollutants in ppm)
@@ -59,13 +60,59 @@ async def fetch_weather_forecast(city: str, session: aiohttp.ClientSession):
             # Calculate the estimated oxygen concentration
             oxygen_concentration = calculate_oxygen_concentration(air_quality)
 
-            # Prepare data for prediction
+            # Prepare detailed forecast
+            forecast = []
+            for entry in data["list"]:
+                date = datetime.fromtimestamp(entry["dt"]).strftime("%Y-%m-%d %H:%M:%S")
+                temperature = entry["main"]["temp"]
+                description = entry["weather"][0]["description"]
+                humidity = entry["main"]["humidity"]
+                wind_speed = entry["wind"]["speed"]
+                wind_direction = entry["wind"]["deg"]
+                temp_min = entry["main"]["temp_min"]
+                temp_max = entry["main"]["temp_max"]
+                pressure = entry["main"]["pressure"]
+                cloudiness = entry["clouds"]["all"]
+                ground_level_pressure = entry["main"].get("grnd_level", "N/A")
+
+                forecast.append({
+                    "date": date,
+                    "temperature": temperature,
+                    "description": description,
+                    "humidity": humidity,
+                    "wind_speed": wind_speed,
+                    "wind_direction": wind_direction,
+                    "temp_min": temp_min,
+                    "temp_max": temp_max,
+                    "pressure": pressure,
+                    "cloudiness": cloudiness,
+                    "ground_level_pressure": ground_level_pressure,
+                })
+
+            # Prepare prediction data based on pollutants
             prediction_data = {
-                "O2": oxygen_concentration,
+                "Oxygen": oxygen_concentration,
                 "Temperature": data["list"][0]["main"]["temp"],  # Current temperature
                 "Humidity": data["list"][0]["main"]["humidity"],  # Current humidity
             }
 
-            return prediction_data
+            # Return full response
+            return {
+                "city": city,
+                "forecast": forecast,  # Full weather forecast
+                "pollutants": air_quality,  # Air quality data
+                "oxygen_concentration": oxygen_concentration,  # Oxygen concentration based on pollutants
+                "prediction_data": prediction_data  # Temperature, humidity, oxygen concentration
+            }
+
     except aiohttp.ClientError as e:
         return {"error": f"Weather Fetch Error: {str(e)}"}
+
+# Example usage of fetching data (you need to run this in an async environment)
+async def main():
+    async with aiohttp.ClientSession() as session:
+        city = "Your City"
+        data = await fetch_weather_forecast(city, session)
+        print(data)
+
+# If running in a script, use asyncio.run(main()) to execute main function
