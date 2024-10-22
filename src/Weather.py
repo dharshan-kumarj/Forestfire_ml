@@ -1,44 +1,34 @@
+# src/weather.py
 import aiohttp
 from datetime import datetime
-from config import Config  # Assuming your API keys and URLs are stored here
+from config import Config
 
-# Function to fetch air quality data (pollutants in ppm)
-async def fetch_air_quality(lat: float, lon: float, session: aiohttp.ClientSession):
-    query_params = {
-        "lat": lat,
-        "lon": lon,
-        "appid": Config.API_KEY
-    }
+WIND_DIRECTIONS = {
+    range(int(round(348.76)), 360): "N",
+    range(0, int(round(11.25))): "N",
+    range(int(round(11.25)), int(round(33.75))): "NNE",
+    range(int(round(33.75)), int(round(56.25))): "NE",
+    range(int(round(56.25)), int(round(78.75))): "ENE",
+    range(int(round(78.75)), int(round(101.25))): "E",
+    range(int(round(101.25)), int(round(123.75))): "ESE",
+    range(int(round(123.75)), int(round(146.25))): "SE",
+    range(int(round(146.25)), int(round(168.75))): "SSE",
+    range(int(round(168.75)), int(round(191.25))): "S",
+    range(int(round(191.25)), int(round(213.75))): "SSW",
+    range(int(round(213.75)), int(round(236.25))): "SW",
+    range(int(round(236.25)), int(round(258.75))): "WSW",
+    range(int(round(258.75)), int(round(281.25))): "W",
+    range(int(round(281.25)), int(round(303.75))): "WNW",
+    range(int(round(303.75)), int(round(326.25))): "NW",
+    range(int(round(326.25)), int(round(348.76))): "NNW",
+}
 
-    try:
-        async with session.get(Config.AIR_QUALITY_URL, params=query_params) as response:
-            response.raise_for_status()
-            data = await response.json()
+def get_cardinal_direction(degrees):
+    for direction_range, cardinal_direction in WIND_DIRECTIONS.items():
+        if degrees in direction_range:
+            return cardinal_direction
+    return "Unknown"
 
-            # Extract pollutants data
-            pollutants = {
-                'co': data["list"][0]["components"]["co"],
-                'no': data["list"][0]["components"]["no"],
-                'no2': data["list"][0]["components"]["no2"],
-                'o3': data["list"][0]["components"]["o3"],
-                'so2': data["list"][0]["components"]["so2"],
-                'pm2_5': data["list"][0]["components"]["pm2_5"],
-                'pm10': data["list"][0]["components"]["pm10"],
-                'nh3': data["list"][0]["components"]["nh3"]
-            }
-
-            return pollutants
-    except aiohttp.ClientError as e:
-        return {"error": f"Air Quality Fetch Error: {str(e)}"}
-
-# Function to calculate oxygen concentration based on pollutants
-def calculate_oxygen_concentration(pollutants):
-    initial_oxygen_concentration = 20.9  # Percentage of oxygen in the air
-    total_pollutant_concentration = sum(pollutants.values())  # Sum of all pollutants
-    oxygen_concentration = initial_oxygen_concentration - (total_pollutant_concentration / 1_000_000)  # Adjust for pollutants
-    return max(0, oxygen_concentration)  # Ensure oxygen concentration doesn't go below 0%
-
-# Function to fetch weather forecast along with air quality data
 async def fetch_weather_forecast(city: str, session: aiohttp.ClientSession):
     query_params = {
         "q": city,
@@ -51,16 +41,6 @@ async def fetch_weather_forecast(city: str, session: aiohttp.ClientSession):
             response.raise_for_status()
             data = await response.json()
 
-            lat = data["city"]["coord"]["lat"]
-            lon = data["city"]["coord"]["lon"]
-
-            # Fetch air quality data
-            air_quality = await fetch_air_quality(lat, lon, session)
-
-            # Calculate the estimated oxygen concentration
-            oxygen_concentration = calculate_oxygen_concentration(air_quality)
-
-            # Prepare detailed forecast
             forecast = []
             for entry in data["list"]:
                 date = datetime.fromtimestamp(entry["dt"]).strftime("%Y-%m-%d %H:%M:%S")
@@ -68,7 +48,7 @@ async def fetch_weather_forecast(city: str, session: aiohttp.ClientSession):
                 description = entry["weather"][0]["description"]
                 humidity = entry["main"]["humidity"]
                 wind_speed = entry["wind"]["speed"]
-                wind_direction = entry["wind"]["deg"]
+                wind_direction = get_cardinal_direction(entry["wind"]["deg"])
                 temp_min = entry["main"]["temp_min"]
                 temp_max = entry["main"]["temp_max"]
                 pressure = entry["main"]["pressure"]
@@ -86,33 +66,9 @@ async def fetch_weather_forecast(city: str, session: aiohttp.ClientSession):
                     "temp_max": temp_max,
                     "pressure": pressure,
                     "cloudiness": cloudiness,
-                    "ground_level_pressure": ground_level_pressure,
+                    "ground_level_pressure": ground_level_pressure
                 })
 
-            # Prepare prediction data based on pollutants
-            prediction_data = {
-                "Oxygen": oxygen_concentration,
-                "Temperature": data["list"][0]["main"]["temp"],  # Current temperature
-                "Humidity": data["list"][0]["main"]["humidity"],  # Current humidity
-            }
-
-            # Return full response
-            return {
-                "city": city,
-                "forecast": forecast,  # Full weather forecast
-                "pollutants": air_quality,  # Air quality data
-                "oxygen_concentration": oxygen_concentration,  # Oxygen concentration based on pollutants
-                "prediction_data": prediction_data  # Temperature, humidity, oxygen concentration
-            }
-
+            return forecast
     except aiohttp.ClientError as e:
-        return {"error": f"Weather Fetch Error: {str(e)}"}
-
-# Example usage of fetching data (you need to run this in an async environment)
-async def main():
-    async with aiohttp.ClientSession() as session:
-        city = "Your City"
-        data = await fetch_weather_forecast(city, session)
-        print(data)
-
-# If running in a script, use asyncio.run(main()) to execute main function
+        return {"error": str(e)}
